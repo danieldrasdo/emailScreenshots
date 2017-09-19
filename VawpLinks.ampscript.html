@@ -1,0 +1,15 @@
+%%[
+IF _messageContext == 'SEND' AND _IsTestSend == false THEN
+	/* This next line determines which emails I want a screenshot for, my use case is that we didn't need them for triggered/lifecycle emails, but this may be different than other people's setup */
+	IF NOT empty(__AdditionalEmailAttribute1) AND __AdditionalEmailAttribute1 != 'lifecycle' THEN
+		/* VawpLinks lookup */
+		var @VawpLinksRows, @VawpLinksRow, @VawpLinksRowCount
+		set @VawpLinksRows = LookupRows("VawpLinks","JobId",jobid)
+		set @VawpLinksRowCount = rowcount(@VawpLinksRows)
+		
+		IF @VawpLinksRowCount == 0 THEN
+			InsertDE('VawpLinks', 'JobId', jobid, 'DateSent', NOW(), 'VawpLink', view_email_url)
+		ENDIF
+	ENDIF
+ENDIF
+]%%
