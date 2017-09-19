@@ -1,0 +1,6 @@
+"""VawpLinks"" Data Extension Fields Info",,,,,
+NAME,DATA TYPE,LENGTH,PRIMARY KEY,NULLABLE,DEFAULT VALUE
+JobId,Number,,Y,N,
+DateSent,Date,,,N,
+VawpLink,Text,Do not define a length (leave blank),,N,
+ImageGenerated,Boolean,,,Y,False
