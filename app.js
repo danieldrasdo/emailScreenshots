@@ -1,134 +1,231 @@
-function LogMe(str) {
-  console.log( new Date().getTime() + ' | ' + str )
+// ~~~~~~~~~~ FUNCTIONS START ~~~~~~~~~~
+//Keeps a running log of time-stamped app events
+function logMe(str, boolean) {
+  let now = new Date();
+
+  if ( logMe.arguments.length == 1 ) {
+    boolean = true;
+  }
+  const timestamp = boolean;
+
+  if (timestamp) {
+    logDetails += (now.getTime() + '|' + now.toLocaleDateString() + ' ' + now.toLocaleTimeString() + '|');
+  }
+  logDetails += str;
+  if (timestamp) {
+    logDetails += '|';
+  }
 }
 
+//Ends the time-stamped log and returns
+function endAndReturn(error) {
+  if (error) {
+    logDetails += err;
+  }
+  logDetails += 'ENDED';
+  console.log(logDetails);
+  if (error) {
+    sendEmailAlert(
+      'email@yourdomain.com',
+      ['youremail@gmail.com','youremail@yourcompany.com'],
+      'Error occurred!',
+      'The following error occurred on this run of the GoogleAnalytics Node App.\n' + err + '\n\n\nThe full log details are as follows...\n' + logDetails + '\n',
+      alertSent
+    );
+  } else {
+    //comment this out when you're sick of getting these emails...
+    /*sendEmailAlert(
+      'email@yourdomain.com',
+      ['youremail@gmail.com','youremail@yourcompany.com'],
+      'Ran Successfully!',
+      'The full log details are as follows...\n' + logDetails + '\n',
+      function(err, info) {
+        if (err) {
+          logMe('\nError, success email did not send.');
+          return;
+        } else {
+          return;
+        }
+      }
+    );*/
+    return;
+  }
+}
+
+//Returns an array that's ready for processing
 function ManageableArray(arr) {
   if (!Array.isArray(arr)) {
-    logMe('Error: ' + arr + ' is not an array!');
-  };
-  var resultingArray = [];
-  for (var i = 0; i < arr.length; i++) {
-    var resultingObject = {};
-    for (var j = 0; j < arr[i].Properties.Property.length; j++) {
-      resultingObject[arr[i].Properties.Property[j].Name] = arr[i].Properties.Property[j].Value;
+    endAndReturn('Error: response.body.Results is not an array!');
+  } else {
+    let results = [];
+    for (var i = 0; i < arr.length; i++) {
+      let obj = {};
+      for (var j = 0; j < arr[i].Properties.Property.length; j++) {
+        obj[arr[i].Properties.Property[j].Name] = arr[i].Properties.Property[j].Value;
+      }
+      results.push(obj);
     }
-    resultingArray.push(resultingObject);
+    return results;
   }
-  return resultingArray;
 }
 
-function GenerateImage(url, jobId, dataExtensionName) {
-	/* Webshot options can be found here...
-	https://github.com/brenden/node-webshot#options */
-  var options = {
-    screenSize: {
-      width: 640,
-      height: 480
-    },
-    shotSize: {
-      width: 'window',
-      height: 'all'
-    },
-    quality: 50
-  };
-  var filePath = 'screenshots/' + jobId + '.png';// This is the directory where the screenshots will be saved to. This can be modified.
+//Runs the function that Generates an image for each item in an array
+function GenerateImages(arr, dataExtensionName) {
+  if (arr.length > 0) {
+    GenerateImage(arr[0].VawpLink, arr[0].JobId, dataExtensionName);
+  } else {
+    logDetails += '|';//I know, this is kinda cheating...
+    logMe('Done processing all screenshots!');
+    endAndReturn();
+  }
+}
 
-  webshot(url, filePath, options, function(err) {
-    if (err) {
-      LogMe('WebShot Error: ' + err);
+//Generates a screen shot image
+function GenerateImage(url, jobId, dataExtensionName) {
+  webshot(
+    url,
+    var filePath = 'screenshots/' + jobId + '.png';// This is the directory where the screenshots will be saved to. This can be modified.
+    {
+      screenSize: {
+        width: 640,
+        height: 480
+      },
+      shotSize: {
+        width: 'window',
+        height: 'all'
+      },
+      quality: 50
+    },
+    function(err) {
+      if (err) {
+        endAndReturn('Error generating Job ID ' + jobId + ' screenshot. Error: ' + JSON.stringify(err, null, 2));
+      } else {
+        // screenshot now saved
+        logMe(jobId + ' screenshot created! ', false);
+        //Upsert to DE
+        upsertRow(jobId);
+      }
+    }
+  );
+}
+
+//Marks the row on the Data Extension as processed
+function upsertRow(jobId) {
+  SoapClient.update(
+    "DataExtensionObject",
+    {
+      "Name": dataExtensionName,
+      "Keys": [
+        {
+          "Key": {
+            "Name": "JobId",
+            "Value": jobId
+          }
+        }
+      ],
+      "Properties": [
+        {
+          "Property": {
+            "Name": "imageGenerated",
+            "Value": true
+          }
+        }
+      ]
+    },
+    {
+      SaveOptions: [
+        {
+          "SaveOption": {
+            PropertyName: "DataExtensionObject",
+            SaveAction: "UpdateAdd"
+          }
+        }
+      ]
+    },
+    function(err, response) {
+    if(err) {
+      endAndReturn('Error updating Job ID ' + jobId + ' row on the ' + dataExtensionName + ' data extension. Error: ' + JSON.stringify(err, null, 2));
     } else {
       // screenshot now saved
-      LogMe('Image ' + filePath + ' Created!');
-
-      //UPSERT DE
-      var co = {
-        "Name": dataExtensionName,
-        "Keys": [
-          {
-            "Key": {
-              "Name": "JobId",
-              "Value": jobId
-            }
-          }
-        ],
-        "Properties": [
-          {
-            "Property": {
-              "Name": "imageGenerated",
-              "Value": true
-            }
-          }
-        ]
-      };
-      var uo = {
-        SaveOptions: [
-          {
-            "SaveOption": {
-              PropertyName: "DataExtensionObject",
-              SaveAction: "UpdateAdd"
-            }
-          }
-        ]
-      };
-
-      SoapClient.update("DataExtensionObject", co, uo, function(err, response) {
-        if(err) {
-          LogMe('Data Extension Update Error: ' + err);
-        }
-        else {
-          LogMe('Job ID ' + jobId + ' row updated!');
-          LogMe( JSON.stringify(response.body.Results, null, 2) );
-        }
-      });
+      logMe('Row Updated! ', false);
+      resultsArray.shift();
+      GenerateImages(resultsArray, dataExtensionName);
     }
   });
 }
 
-function GenerateImages(arr, dataExtensionName) {
-  for (var i = 0; i < arr.length; i++) {
-    GenerateImage(arr[i].VawpLink, arr[i].JobId, dataExtensionName);
-  }
+//Sends an email alert if something goes wrong, then runs the callback
+function sendEmailAlert(sender, recipients, subject, message, cb) {
+  nodemailerMailgun.sendMail({
+    from: sender,
+    to: recipients,// An array if you have multiple recipients.
+    //cc:'second@domain.com',
+    //bcc:'secretagent@company.gov',
+    subject: 'EmailScreenshots Node App: ' + subject,
+    'h:Reply-To': sender,
+    //You can use "html:" to send HTML email content. It's magic!
+    //html: code,
+    //You can use "text:" to send plain-text content. It's oldschool!
+    text: message
+  },
+  cb
+  );
 }
 
-var FuelSoap = require('fuel-soap'),
-    webshot = require('webshot');
-
-/* This requires an app created in App Center, more info here...
-https://developer.salesforce.com/docs/atlas.en-us.noversion.mc-apis.meta/mc-apis/getting_started_developers_and_the_exacttarget_api.htm
-...and here...
-https://developer.salesforce.com/docs/atlas.en-us.mc-getting-started.meta/mc-getting-started/app-center.htm */
-var fuelSoapOptions = {
-  auth: {
-    clientId: '[CLIENT_ID_GOES_HERE]',
-    clientSecret: '[CLIENT_SECRET_GOES_HERE]'
-  },
-  soapEndpoint: 'https://webservice.s7.exacttarget.com/Service.asmx'
-};
-
-var dataExtensionObjectName = 'VawpLinks';
-var vawpLinksOptions = {
-  filter: {
-    leftOperand: 'ImageGenerated',
-    operator: 'equals',
-    rightOperand: false
+//Runs if an email alert was sent
+function alertSent(err, info) {
+  if (err) {
+    logMe('\nError, alert email did not send.');
+    return;
+  } else {
+    endAndReturn();
   }
-};
+}
+// ~~~~~~~~~~ FUNCTIONS END ~~~~~~~~~~
 
-LogMe('Started process');
+// ~~~~~~~~~~ VARIABLES START ~~~~~~~~~~
+const FuelSoap = require('fuel-soap');
+const webshot = require('webshot');
+const fuelSoapKey = require('./fuelSoapKeys.json');//View the fuelSoapKeys_SAMPLE.json
+const SoapClient = new FuelSoap(fuelSoapKey);
 
-var SoapClient = new FuelSoap(fuelSoapOptions);
+const nodemailer = require('nodemailer');
+const mg = require('nodemailer-mailgun-transport');
+const mailgunKey = require('./mailgunKeys.json');//View the mailgunKeys_SAMPLE.json
+const nodemailerMailgun = nodemailer.createTransport(mg(mailgunKey));
+
+//Start a log of events
+let logDetails = '';
+
+let resultsArray = [];
+
+const dataExtensionName = 'VawpLinks';
+// ~~~~~~~~~~ VARIABLES END ~~~~~~~~~~
+
+logMe('STARTED');
 
 SoapClient.retrieve(
-  'DataExtensionObject[' + dataExtensionObjectName + ']',
+  'DataExtensionObject[' + dataExtensionName + ']',
   ['JobId', 'DateSent', 'VawpLink', 'ImageGenerated'],
-  vawpLinksOptions,
-  function( err, response ) {
-    if ( err ) {
-      LogMe('Data Extension Retrieve Error: ' + err);
-      return;
+  {
+    filter: {
+      leftOperand: 'ImageGenerated',
+      operator: 'equals',
+      rightOperand: false
     }
-
-    LogMe( '"' + dataExtensionObjectName + '" Data Extension Results: ' + JSON.stringify(ManageableArray(response.body.Results), null, 2) );
-    GenerateImages(ManageableArray(response.body.Results), dataExtensionObjectName);
+  },
+  function( err, response ) {
+    if (err) {
+      endAndReturn('Error retrieving ' + dataExtensionName + ' Data: ' + JSON.stringify(err, null, 2));
+    } else {
+      resultsArray = ManageableArray(response.body.Results);
+      if (resultsArray.length > 0) {
+        logMe('Processing ' + resultsArray.length + ' ' + dataExtensionName + ' rows.');
+        GenerateImages(resultsArray, dataExtensionName);
+      } else {
+        logMe(resultsArray.length + ' ' + dataExtensionName + ' rows found.');
+        endAndReturn();
+      }
+    }
   }
 );
