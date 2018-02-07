@@ -186,12 +186,12 @@ function alertSent(err, info) {
 // ~~~~~~~~~~ VARIABLES START ~~~~~~~~~~
 const FuelSoap = require('fuel-soap');
 const webshot = require('webshot');
-const fuelSoapKey = require('./fuelSoapKeys.json');//View the fuelSoapKeys_SAMPLE.json
+const fuelSoapKey = require('./fuelSoapKeys.json');//View the fuelSoapKeys_SAMPLE.json, edit it, and remove '_SAMPLE'
 const SoapClient = new FuelSoap(fuelSoapKey);
 
 const nodemailer = require('nodemailer');
 const mg = require('nodemailer-mailgun-transport');
-const mailgunKey = require('./mailgunKeys.json');//View the mailgunKeys_SAMPLE.json
+const mailgunKey = require('./mailgunKeys.json');//View the mailgunKeys_SAMPLE.json, edit it, and remove '_SAMPLE'
 const nodemailerMailgun = nodemailer.createTransport(mg(mailgunKey));
 
 //Start a log of events
