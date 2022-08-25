@@ -29,7 +29,7 @@ function endAndReturn(error) {
       'email@yourdomain.com',
       ['youremail@gmail.com','youremail@yourcompany.com'],
       'Error occurred!',
-      'The following error occurred on this run of the GoogleAnalytics Node App.\n' + err + '\n\n\nThe full log details are as follows...\n' + logDetails + '\n',
+      'The following error occurred on this run of the EmailScreenshots Node App.\n' + err + '\n\n\nThe full log details are as follows...\n' + logDetails + '\n',
       alertSent
     );
   } else {
